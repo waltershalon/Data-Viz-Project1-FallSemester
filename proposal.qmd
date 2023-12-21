@@ -1,0 +1,121 @@
+---
+title: "USA Weather Forecast Accuracy Analysis"
+subtitle: "Proposal"
+format: html
+editor: visual
+---
+
+```{r}
+#| label: load-pkgs
+#| message: false
+#| warning: false
+if (!require("pacman"))
+  install.packages("pacman")
+pacman::p_load(tidyverse, tidytuesdayR)
+```
+
+> ## Dataset
+
+```{r}
+#| label: load-dataset
+#| message: false
+#| warning: false
+weather_forecasts <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2022/2022-12-20/weather_forecasts.csv')
+cities <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2022/2022-12-20/cities.csv')
+outlook_meanings <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2022/2022-12-20/outlook_meanings.csv')
+
+```
+
+This dataset represents Weather Forecast Accuracy and is sourced from the [USA National Weather Service](https://www.weather.gov/). You can check out the dataset in [Tidytuesday](https://github.com/rfordatascience/tidytuesday/tree/master/data/2022/2022-12-20) It encompasses 16 months of weather forecasts and subsequent observations for 167 cities across the United States. Weather_forecast_Accuracy is divided into three dimensions, `weather_forecasts`, `cities`, and `outlook_meanings`.
+
+The first dataset we'll look at is `weather_forecasts`, which contains 651,968 observations of 10 variables. Specifically, this includes factor variables like `city`, `state` and `forecast_outlook` or integer variables like temperature and forecast hours. The second dataset we'll look at is `cities`, which contains 236 observations of 11 variables with geographic information such as latitude, longitude, and climate for 236 cities, including the 167 cities we'll be looking at. The last dataset, `outlook_meanings`, contains 23 observations of 2 variables and is the one that describes the aforementioned variable, `forecast_outlook`.
+
+------------------------------------------------------------------------
+
+> ## Why did we choose this dataset
+
+Our Data Visualization class project requires us to work collaboratively on a dataset of our choice to create meaningful visualizations.
+
+After careful consideration, we have chosen to work with a weather forecast dataset, for several compelling reasons:
+
+1.  Richness and Depth: The dataset holds an extensive range of information, covering 16 months of forecasts and observations from 167 cities. With variables including temperature, humidity, precipitation, and wind speed, among others, this dataset offers an opportunity to visualize and analyze diverse aspects of weather patterns, enabling a comprehensive understanding of meteorological trends.
+2.  Learning Opportunities: Working with weather forecast data challenges us to apply the data visualization skills we acquired in class to a complex and dynamic dataset. This hands-on experience will undoubtedly enhance our proficiency in data analysis and visualization.
+3.  Historical connections:Weather has been one of the earliest uses of data visualization techniques. Early as 1875 Sir Francis Galton created the daily weather chart that was published in The Times newspaper. We aim to continue this legacy by being part of the innovation, in data visualization. Through this project we strive to push the boundaries of creating weather related data in todays era
+4.  Weather Intelligence Industry: Finally, our choice was motivated by the currently thriving weather intelligence industry. In today's data-driven world, companies like Tomorrow.io and EarthNetworks.comhave created a demand for precise and clear weather data and insights. This not only aligns with industry needs, but also provides us with a chance to enhance our data analysis and visualization skills in a highly relevant context.
+
+In summary, we are excited about the potential of our weather forecast data project and are committed to producing exceptional visualizations. We look forward to using this dataset to create informative and engaging visualizations that showcase our skills and contribute meaningfully to the field of data visualization.
+
+------------------------------------------------------------------------
+
+> ## Questions
+
+-   Question 1: How does the error in temperature prediction vary across the United States? and can we identify clusters of cities with similar error patterns?
+
+-   Question 2: How do temperature forecasting errors vary across the U.S. during different seasons, and can we visualize this on a geographic heatmap?
+
+------------------------------------------------------------------------
+
+> ## Analysis Plan
+
+### **Question 1: Spatial Distribution of Temperature Forecasting Errors** {style="color: black"}
+
+How does the error in temperature prediction vary across the United States? and can we identify clusters of cities with similar error patterns?
+
+This question is essential since errors in weather forecasting are the main reason for this data set to be created. To answer the question, we plan on using advanced geospatial data visualization techniques. To represent the data best, we will create an interactive choropleth map of the United States that displays the spatial distribution of temperature forecasting errors for U.S. cities. This will be done by using the package leaflet and taking the following steps:
+
+-   Choropleth Map: It will be generated using the variables:
+
+    -   Latitude (type: double)
+    -   Longitude (type: double)
+    -   Cities (type: charecter)
+    -   Temperature forecasting errors (type: factor)
+
+-   Temperature forecasting errors: Below are the variables that will be used to calculate temperature forecasting errors:
+
+    -   Observed Temperature (Degrees Fahrenheit).
+    -   Forecasted Temperature (Degrees Fahrenheit).
+
+-   Clustering Cities Based on Regional Error Patterns:
+
+    -   Categorize cities by state.
+    -   Calculate Regional Averages
+
+Finally, we will implement a dark mode design to achieve a modern and eye-catching aesthetic, and we will utilize the color theory to show the results. Also, in the data visualization we are creating as a heatmap, we will attempt to make it possible for users to be able to zoom in and out for a detailed exploration of specific regions. We hope that this visualization will not only provide answers to the scientific questions but also engage users with modern and interactive design elements, enhancing their understanding of the data and its implications.
+
+### **Question 2: Geographic Seasonality in Temperature Forecasting Errors** {style="color: black"}
+
+How do temperature forecasting errors vary across the U.S. during different seasons, and can we visualize this on a geographic heatmap?
+
+The objective is to determine whether certain regions in the U.S. exhibit seasonal variations in temperature forecast errors. For this, we'll use heatmaps overlaid on a map of the U.S.
+
+Plans for answering the question 2:
+
+-   Variables Involved:
+
+    -   date (type: integer) : To determine the season (e.g., Winter, Spring, Summer, Fall).
+
+    -   city and state ( type: factor) : For geographical mapping.
+
+    -   observed_temp and forecast_temp( type: integer) : To calculate the error.
+
+-   Variables to be Created:
+
+    -   season (type: charecter) : Derived from the date variable.
+
+    -   temp_error (type: factor) : The difference between observed_temp and forecast_temp.
+
+    -   mean_temp_error_per_season (type: factor) : Average error for each city during each season.
+
+-   External Data:
+
+    -   No external data is required at this time. However, if deeper insights are needed in the future regarding specific climate anomalies or unique geographical features not captured in the current dataset, external sources might be sought.
+
+-   Analysis and Visualization:
+
+    -   Begin by segregating the data seasonally.
+
+    -   Compute the error for each observation and then average them seasonally for each city.
+
+    -   Plot this data on a geographical heatmap using the latitude and longitude data available in the cities dataset. The heatmap will showcase regions with the highest temperature forecasting errors, with distinct visuals for each season.
+
+By the end of this analysis, we aim to have a clear visualization that depicts regions with consistently high forecasting errors and to observe if there's a seasonality to these errors across different parts of the U.S.

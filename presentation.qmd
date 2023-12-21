@@ -1,0 +1,281 @@
+---
+title: "Seasonal & Temporal Trends: Exploring the weather forecasting accuracy across the U.S."
+subtitle: "INFO 526 - Fall 2023 - Project 1"
+author: "GGplot gurus- Swetha, Shalon, Deema, Kiwoon, Harsh"
+title-slide-attributes:
+  data-background-image: images/wf2.jpeg
+  data-background-size: stretch
+  data-background-opacity: "0.4"
+  data-slide-number: none
+format:
+  revealjs:
+    theme:  ['data/customtheming.scss']
+    transition: convex
+    background-transition: concave
+  
+editor: visual
+execute:
+  echo: false
+  warning: false
+---
+
+```{r load packages}
+
+
+if (!require("pacman"))
+  install.packages("pacman")
+pacman::p_load(tidyverse, tidytuesdayR,ggridges,plotly,
+               patchwork, lubridate, ggmap, sf, usmap, 
+               viridis, ggthemes, maps
+               )
+
+```
+
+```{r}
+#| label: setup
+#| include: false
+
+# Plot theme
+ggplot2::theme_set(ggplot2::theme_minimal(base_size = 11))
+
+# For better figure resolution
+knitr::opts_chunk$set(
+  fig.retina = 3, 
+  dpi = 300, 
+  fig.width = 6, 
+  fig.asp = 0.618 
+  )
+```
+
+```{r include=FALSE}
+
+# Load data here
+
+weather_forecasts <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2022/2022-12-20/weather_forecasts.csv', show_col_types = FALSE)
+cities <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2022/2022-12-20/cities.csv', show_col_types = FALSE)
+outlook_meanings <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2022/2022-12-20/outlook_meanings.csv', show_col_types = FALSE)
+
+```
+
+## **How Reliable Are Weather Forecasts?** {style="text-align: center; color: green"}
+
+ 
+
+ 
+
+![](images/Slide2.jpg){fig-align="center" width="437"}
+
+## Dataset and key variables {style="text-align: center"}
+
+The dataset Weather_forecast_Accuracy includes 16 months of forecasts and observations from 167 cities.
+
+1.  `weather_forecasts:`
+
+    -   Date, City and State, Observed Temp and Forecast Temp
+
+2.  `cities:`
+
+    -   longitude, latitude, Cities, Temperature forecasting errors
+
+3.  `outlook_meanings`:
+
+    -   Forecast_outlook, meaning
+
+## \## Question 1: How does the error in temperature prediction vary across the United States? Can we identify clusters of cities with similar error patterns? {style="text-align: center"}
+
+#### Visualize the mean temperature prediction error by city {style="text-align: center"}
+
+```{r}
+# Calculate temperature prediction error
+weather_forecasts <- weather_forecasts %>%
+  mutate(temp_error = observed_temp - forecast_temp)
+
+# Group by city and calculate mean temperature prediction error
+city_errors <- weather_forecasts %>% 
+  group_by(city) %>% 
+  summarise(mean_temp_error = mean(temp_error, na.rm = TRUE), .groups = 'drop')
+
+# Add an index for each city for plotting
+city_errors$city_index <- seq(1, nrow(city_errors))
+
+# Prepare a dataframe for labels
+label_data <- city_errors
+
+# Calculate the ANGLE of the labels
+number_of_bar <- nrow(label_data)
+angle <- 90 - 360 * (label_data$city_index - 0.5) / number_of_bar
+
+# Adjust hjust based on side of plot
+label_data$hjust <- ifelse(angle < -90 & label_data$mean_temp_error > 0, 1, 
+                           ifelse(angle >= -90 & label_data$mean_temp_error > 0, 0, 
+                                  ifelse(angle >= -90 & label_data$mean_temp_error <= 0, 0, 1)))
+
+# Adjust the angle for negative bars
+label_data$angle <- ifelse(angle < -90, angle + 180, angle)
+
+# Calculate an offset for negative bar labels
+offset <- max(abs(city_errors$mean_temp_error)) * -0.5
+
+# Update the y position of labels based on mean_temp_error direction
+label_data$label_y <- ifelse(label_data$mean_temp_error <= 0, 
+                             label_data$mean_temp_error - offset,
+                             label_data$mean_temp_error + 0)
+
+# Circular Barplot with city names
+# Circular Barplot with city names
+ggplot(city_errors, aes(x = as.factor(city_index), y = mean_temp_error)) + 
+  geom_bar(stat = "identity", fill = "red") + 
+  geom_text(data = label_data, aes(label = city, y = label_y, angle = angle, hjust = hjust), 
+            color = "white", size = 1.5) + 
+  ylim(-max(abs(city_errors$mean_temp_error)), max(abs(city_errors$mean_temp_error))) + 
+  theme_minimal() + 
+  theme(
+    plot.background = element_rect(fill = "black"),
+    panel.background = element_rect(fill = "black"),
+    axis.text.x = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.y = element_blank(),
+    plot.title = element_text(color = "white")  # Set title text color to white
+  ) + 
+  coord_polar(theta = "x") + 
+  labs(title = "Mean Temperature Prediction \nError by City")
+
+
+```
+
+------------------------------------------------------------------------
+
+#### Identifyng error per cluster on a map {style="text-align: center"}
+
+```{r, warning=FALSE}
+outlook_translations <- tribble(
+  ~forecast_outlook, ~meaning,
+  "BLGSNO", "Blowing Snow",
+  "BLZZRD", "Blizzard",
+  "DRZL", "Drizzle",
+  # ... and so on for the rest of the translations
+  "VRYHOT", "Very Hot",
+  "VRYCLD", "Very Cold"
+)
+
+# Create meaningful outlooks and store them in a named vector for fast lookup
+lookup <- deframe(outlook_translations)
+weather_forecasts <- weather_forecasts %>%
+  mutate(
+    meaning = coalesce(lookup[forecast_outlook], str_to_title(forecast_outlook))
+  )
+
+# Calculate temperature prediction error
+weather_forecasts <- weather_forecasts %>%
+  mutate(temp_error = observed_temp - forecast_temp)
+
+# Group by city and calculate mean temperature prediction error
+city_errors <- weather_forecasts %>%
+  group_by(city, state) %>%
+  summarise(mean_temp_error = mean(temp_error, na.rm = TRUE), .groups = 'drop') 
+
+# Join with city data to get lat/lon coordinates
+city_errors_map <- left_join(city_errors, cities, by = c("city", "state")) %>%
+  filter(lat > 24 & lat < 50 & lon > -125 & lon < -66)
+
+# Create a map with adjusted aesthetics
+ggplot(data = city_errors_map) +
+  geom_point(aes(x = lon, y = lat, color = mean_temp_error), size = 2) +
+  scale_color_viridis_c(name = "Mean Temp\nError (°F)", option = "C") +
+  labs(title = "Mean Temperature Prediction Error \nAcross US Cities") +
+  coord_fixed(ratio = 1.3) +
+  theme_minimal(base_family = "Arial") +
+  theme(
+    legend.position = "bottom",
+    plot.background = element_rect(fill = "black"), # Black background
+    plot.title = element_text(color = "white", hjust = 0.5), # White title
+    plot.margin = margin(10, 10, 10, 10),
+    axis.text = element_text(color = "white"), # White axis labels
+    axis.title = element_text(color = "white"), # White axis titles
+    legend.background = element_rect(fill = "black"), # Black legend background
+    legend.text = element_text(color = "white"), # White legend text
+    panel.grid.major = element_blank(), # Remove major grid lines
+    panel.grid.minor = element_blank()  # Remove minor grid lines
+  ) +
+  scale_x_continuous(limits = c(-125, -66)) +
+  scale_y_continuous(limits = c(24, 50)) +
+  geom_polygon(data = map_data("state"), aes(x = long, y = lat, group = group), fill = NA, color = "white") + # Adding state boundaries
+  geom_polygon(data = map_data("usa"), aes(x = long, y = lat, group = group), fill = NA, color = "white") # Adding US borders
+
+```
+
+## Question 2: Geographic Seasonality in Temperature Forecasting Errors {style="text-align: center"}
+
+#### Do seasons impact Weather forecasting ?
+
+```{r}
+
+
+# Data Preparation
+weather_forecasts$season <- case_when(
+  month(weather_forecasts$date) %in% c(12, 1, 2) ~ "Winter",
+  month(weather_forecasts$date) %in% c(3, 4, 5) ~ "Spring",
+  month(weather_forecasts$date) %in% c(6, 7, 8) ~ "Summer",
+  month(weather_forecasts$date) %in% c(9, 10, 11) ~ "Fall",
+  TRUE ~ NA_character_
+)
+
+# Calculate temperature error
+weather_forecasts$temp_error <- weather_forecasts$observed_temp - weather_forecasts$forecast_temp
+
+# Aggregate data to get mean error by city and season
+error_by_city_season <- weather_forecasts %>%
+  group_by(city, state, season) %>%
+  summarise(mean_temp_error = mean(temp_error, na.rm = TRUE), .groups = "drop") %>%
+  left_join(cities, by = c("city", "state"))
+
+# Convert the data to sf object
+sf_error_by_city_season <- st_as_sf(error_by_city_season, coords = c("lon", "lat"), crs = 4326)
+
+plot_seasonal_map <- function(data, season_name) {
+  plot_usmap(data = data, values = "mean_temp_error", lines = "black") +
+    scale_fill_gradient2(low = "blue", high = "red", midpoint = 0, 
+                         name = "Mean Temp Error (°F)", label = scales::comma) +
+    labs(title = paste("Geographic Seasonality in Temperature Forecasting Errors -", season_name),
+         subtitle = "Mean temperature forecasting errors across U.S. states") +
+    theme(legend.position = "right")
+}
+
+```
+
+## Winter
+
+```{r winter plot}
+
+
+# For Winter
+winter_data <- error_by_city_season %>% filter(season == "Winter")
+plot_seasonal_map(winter_data, "Winter")
+```
+
+## Spring
+
+```{r spring plot}
+spring_data <- error_by_city_season %>% filter(season == "Spring")
+plot_seasonal_map(spring_data, "Spring")
+```
+
+## Summer
+
+```{r summer plot}
+summer_data <- error_by_city_season %>% filter(season == "Summer")
+plot_seasonal_map(summer_data, "Summer")
+```
+
+## Fall
+
+```{r fall plot}
+fall_data <- error_by_city_season %>% filter(season == "Fall")
+plot_seasonal_map(fall_data, "Fall")
+```
